@@ -1,6 +1,7 @@
 package de.javagl.obj;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.util.List;
@@ -11,6 +12,14 @@ import org.junit.Test;
 @SuppressWarnings("javadoc")
 public class TestObjReader
 {
+
+    @Test
+    public void readFloat()
+        throws Exception
+    {
+        float f = Float.parseFloat("-1.849469E-07");
+        assertEquals(0f, f, 0.000001f);
+    }
     @Test
     public void readSquare() 
         throws IOException
@@ -139,6 +148,22 @@ public class TestObjReader
         assertEquals(new DefaultFloatTuple(1,1,1), mtl0.getKs());
         assertEquals(500, mtl0.getNs(), 1e-6);
 
+    }
+
+    @Test
+    public void injectMissingNormals()
+        throws Exception
+    {
+        DefaultObj input = new DefaultObj();
+        input.addVertex(0f, 0f, 0f);
+        input.addVertex(0f, 0f, 1f);
+        input.addVertex(1f, 0f, 0f);
+        input.addFace(0, 1, 2);
+        Obj output = ObjUtils.injectMissingNormals(input);
+        assertEquals(1, output.getNumFaces());
+        assertEquals(1, output.getNumNormals());
+        assertTrue(output.getFace(0).containsNormalIndices());
+        assertEquals(new DefaultFloatTuple(0f, 1f, 0f), output.getNormal(0));
     }
     
 }

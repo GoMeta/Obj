@@ -460,6 +460,10 @@ final class DefaultObj implements Obj
             "mtlFileNames=" + mtlFileNames + "]";
     }
 
+    void setFace(int index, ObjFace face) {
+        faces.set(index, face);
+    }
+
     /**
      * Returns a set containing all groups with the given names. If the
      * groups with the given names do not exist, they are created and

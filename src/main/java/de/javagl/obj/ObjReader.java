@@ -26,6 +26,8 @@
  */
 
 package de.javagl.obj;
+import com.google.common.annotations.VisibleForTesting;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;

@@ -205,6 +205,43 @@ final class DefaultFloatTuple implements FloatTuple
         values[3] = w;
     }
 
+    /**
+     * Normalize this tuple.
+     */
+    void normalize() {
+        float length = 0f;
+        for (float value : values) {
+            length += value * value;
+        }
+        length = (float) Math.sqrt(length);
+        divide(length);
+    }
+
+    /**
+     * Add another float tuple to this one.
+     *
+     * @param other The other tuple to add.
+     */
+    void plus(FloatTuple other) {
+        if (values.length != other.getDimensions()) {
+            throw new IllegalArgumentException("Can't add FloatTuples without the same number of dimensions");
+        }
+        for (int i = 0; i < values.length; ++i) {
+            values[i] += other.get(i);
+        }
+    }
+
+    /**
+     * Divide this tuple by a constant.
+     *
+     * @param n The constant to divide each component of the tuple by.
+     */
+    void divide(float n) {
+        for (int i = 0; i < values.length; ++i) {
+            values[i] /= n;
+        }
+    }
+
     @Override
     public int getDimensions()
     {

@@ -26,10 +26,9 @@
  */
 
 package de.javagl.obj;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Set;
+import com.google.common.annotations.VisibleForTesting;
+
+import java.util.*;
 
 /**
  * Utility methods for handling {@link Obj}s.<br>
@@ -80,6 +79,10 @@ public class ObjUtils
      *        Make the normals unique}
      *   </li>
      *   <li>
+     *     {@link #injectMissingNormals(ReadableObj)
+     *        Inject any missing normals}
+     *   </li>
+     *   <li>
      *     Make the result {@link #makeVertexIndexed(ReadableObj) 
      *     vertex-indexed}
      *   </li>
@@ -94,6 +97,7 @@ public class ObjUtils
         ReadableObj input, T output)
     {
         Obj obj = triangulate(input);
+        obj = injectMissingNormals(obj);
         obj = makeTexCoordsUnique(obj);
         obj = makeNormalsUnique(obj);
         return makeVertexIndexed(obj, output);
@@ -461,7 +465,136 @@ public class ObjUtils
         makePropertiesUnique(input, accessor, indexMapping, output);
         return output;
     }
-    
+
+    public static Obj injectMissingNormals(ReadableObj input)
+    {
+        return injectMissingNormals(input, new DefaultObj());
+    }
+
+    public static DefaultObj injectMissingNormals(
+            ReadableObj input, DefaultObj output)
+    {
+        output.setMtlFileNames(input.getMtlFileNames());
+        addAll(input, output);
+        Map<Integer, List<ObjFace>> vertexToFacesCache = new HashMap<>();
+        Map<ObjFace, FloatTuple> faceNormalCache = new HashMap<>();
+        for (int faceIndex = 0, numFaces = input.getNumFaces(); faceIndex < numFaces; ++faceIndex)
+        {
+            ObjFace face = input.getFace(faceIndex);
+            activateGroups(input, face, output);
+
+            if (face.containsNormalIndices())
+            {
+                // Skip faces that already have all their normals
+                output.addFace(face);
+                continue;
+            }
+
+            int[] normalArray = new int[face.getNumVertices()];
+            int[] vertexIndices = new int[face.getNumVertices()];
+            int[] textureIndices = null;
+            if (face.containsTexCoordIndices()) {
+                textureIndices = new int[face.getNumVertices()];
+            }
+
+            // For each vertex in the face, compute the normals for all the faces it touches.
+            for (int vertexFaceIndex = 0, numVertices = face.getNumVertices(); vertexFaceIndex < numVertices;
+                    ++vertexFaceIndex)
+            {
+                int vertexIndex = face.getVertexIndex(vertexFaceIndex);
+                vertexIndices[vertexFaceIndex] = vertexIndex;
+                if (face.containsTexCoordIndices()) {
+                    textureIndices[vertexFaceIndex] = face.getTexCoordIndex(vertexFaceIndex);
+                }
+                List<ObjFace> faces = vertexToFacesCache.get(vertexIndex);
+                if (faces == null)
+                {
+                    // Find all the faces that share this vertex and cache them.
+                    faces = findFacesForVertex(input, vertexIndex);
+                    vertexToFacesCache.put(vertexFaceIndex, faces);
+                }
+                List<FloatTuple> normals = new ArrayList<>(faces.size());
+                for (ObjFace f : faces)
+                {
+                    FloatTuple normal = faceNormalCache.get(f);
+                    if (normal == null)
+                    {
+                        // Normal doesn't exist for this face, calculate it and cache it.
+                        normal = calculateNormalForFace(input, f);
+                        faceNormalCache.put(f, normal);
+                    }
+                    normals.add(normal);
+                }
+
+                // Compute the average of the normals
+                DefaultFloatTuple vertexNormal = new DefaultFloatTuple(0f, 0f, 0f);
+                for (FloatTuple normal : normals)
+                {
+                    vertexNormal.plus(normal);
+                }
+                vertexNormal.normalize();
+
+                // Try to find this normal so we don't add duplicates
+                int newNormalIndex = findNormal(output, vertexNormal);
+                if (newNormalIndex == -1) {
+                    output.addNormal(vertexNormal);
+                    newNormalIndex = output.getNumNormals() - 1;
+                }
+                normalArray[vertexFaceIndex] = newNormalIndex;
+            }
+
+            output.addFace(new DefaultObjFace(vertexIndices, textureIndices, normalArray));
+        }
+        return output;
+    }
+
+    private static List<ObjFace> findFacesForVertex(ReadableObj obj, int vertexIndex)
+    {
+        List<ObjFace> faces = new ArrayList<>();
+        for (int i = 0, numFaces = obj.getNumFaces(); i < numFaces; ++i)
+        {
+            ObjFace face = obj.getFace(i);
+            for (int j = 0, numVertices = face.getNumVertices(); j < numVertices; ++j)
+            {
+                if (face.getVertexIndex(j) == vertexIndex)
+                {
+                    faces.add(face);
+                    break;
+                }
+            }
+        }
+        return faces;
+    }
+
+    @VisibleForTesting
+    static FloatTuple calculateNormalForFace(ReadableObj obj, ObjFace face)
+    {
+        if (face.getNumVertices() < 3)
+        {
+            throw new IllegalArgumentException("Cannot calculate normal for faces with less than 3 vertices: " +
+                    face.toString());
+        }
+        DefaultFloatTuple normal = new DefaultFloatTuple(0f, 0f, 0f);
+        for (int i = 0, size = face.getNumVertices(); i < size; ++i)
+        {
+            FloatTuple current = obj.getVertex(face.getVertexIndex(i));
+            FloatTuple next = obj.getVertex(face.getVertexIndex((i + 1) % size));
+            normal.setX(normal.getX() + (current.getY() - next.getY()) * (current.getZ() + next.getZ()));
+            normal.setY(normal.getY() + (current.getZ() - next.getZ()) * (current.getX() + next.getX()));
+            normal.setZ(normal.getZ() + (current.getX() - next.getX()) * (current.getY() + next.getY()));
+        }
+        normal.normalize();
+        return normal;
+    }
+
+    private static int findNormal(ReadableObj obj, FloatTuple normal) {
+        for (int i = 0, size = obj.getNumNormals(); i < size; ++i) {
+            if (obj.getNormal(i).equals(normal)) {
+                return i;
+            }
+        }
+        return -1;
+    }
 
     /**
      * Ensures that two vertices with different properties are 

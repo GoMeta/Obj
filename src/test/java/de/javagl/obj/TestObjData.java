@@ -20,7 +20,7 @@ public class TestObjData
         assertEquals(2, obj.getNumFaces());
         assertEquals(4, obj.getNumVertices());
         assertEquals(4, obj.getNumTexCoords());
-        assertEquals(0, obj.getNumNormals());
+        assertEquals(4, obj.getNumNormals());
         assertEquals(1, obj.getNumGroups()); // default
         assertEquals(0, obj.getNumMaterialGroups());
         
@@ -46,7 +46,7 @@ public class TestObjData
         assertEquals(2, obj.getNumFaces());
         assertEquals(4, obj.getNumVertices());
         assertEquals(4, obj.getNumTexCoords());
-        assertEquals(0, obj.getNumNormals());
+        assertEquals(4, obj.getNumNormals());
         assertEquals(1, obj.getNumGroups()); // default
         assertEquals(0, obj.getNumMaterialGroups());
         
@@ -73,7 +73,7 @@ public class TestObjData
         assertEquals(2, obj.getNumFaces());
         assertEquals(4, obj.getNumVertices());
         assertEquals(4, obj.getNumTexCoords());
-        assertEquals(0, obj.getNumNormals());
+        assertEquals(4, obj.getNumNormals());
         assertEquals(1, obj.getNumGroups()); // default
         assertEquals(0, obj.getNumMaterialGroups());
         
